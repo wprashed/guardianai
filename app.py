@@ -15,9 +15,9 @@ def is_nsfw_and_delete(image_path):
     # Convert to HSV color space
     hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
 
-    # Define skin color range in HSV
-    lower_skin = np.array([0, 48, 80], dtype=np.uint8)  # Lower bound for skin tones
-    upper_skin = np.array([20, 255, 255], dtype=np.uint8)  # Upper bound for skin tones
+    # Define skin color range in HSV (expanded range for better detection)
+    lower_skin = np.array([0, 30, 60], dtype=np.uint8)  # Lower bound for skin tones
+    upper_skin = np.array([25, 255, 255], dtype=np.uint8)  # Upper bound for skin tones
 
     # Create a mask for skin tones
     skin_mask = cv2.inRange(hsv, lower_skin, upper_skin)
@@ -36,16 +36,26 @@ def is_nsfw_and_delete(image_path):
     height, width = image.shape[:2]
     aspect_ratio = max(width, height) / min(width, height)
 
+    # Find contours in the skin mask to detect large skin regions
+    contours, _ = cv2.findContours(skin_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    large_skin_regions = [cnt for cnt in contours if cv2.contourArea(cnt) > 5000]  # Filter large regions
+
     print(f"\nProcessing image: {image_path}")
     print(f"Skin Percentage: {skin_percentage:.2f}%")
     print(f"Aspect Ratio: {aspect_ratio:.2f}")
+    print(f"Large Skin Regions: {len(large_skin_regions)}")
 
     # Define thresholds for NSFW classification
-    skin_threshold = 20  # Adjust this value based on testing
-    aspect_ratio_threshold = 1.2  # Adjust this value based on testing
+    skin_threshold = 25  # Adjust this value based on testing
+    aspect_ratio_threshold = 1.3  # Adjust this value based on testing
+    min_large_skin_regions = 2  # Minimum number of large skin regions to flag as NSFW
 
-    # Check if the image meets both criteria
-    if skin_percentage > skin_threshold and aspect_ratio > aspect_ratio_threshold:
+    # Check if the image meets all criteria
+    if (
+        skin_percentage > skin_threshold and
+        aspect_ratio > aspect_ratio_threshold and
+        len(large_skin_regions) >= min_large_skin_regions
+    ):
         print("NSFW content detected. Deleting the image...")
         try:
             os.remove(image_path)  # Delete the image file
