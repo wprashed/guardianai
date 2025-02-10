@@ -4,7 +4,7 @@ import os
 
 def is_nsfw_and_delete(image_path):
     """
-    Detects NSFW content (e.g., exposed private parts) and deletes the image if flagged.
+    Detects NSFW content (e.g., exposed nipples) and deletes the image if flagged.
     """
     # Load the image
     image = cv2.imread(image_path)
@@ -32,33 +32,53 @@ def is_nsfw_and_delete(image_path):
     skin_pixels = cv2.countNonZero(skin_mask)
     skin_percentage = (skin_pixels / total_pixels) * 100
 
-    # Focus on the lower half of the image (to detect exposed private parts)
+    # Focus on the upper half of the image (to detect exposed nipples)
     height, width = image.shape[:2]
-    lower_half_mask = skin_mask[height // 2:, :]  # Extract the lower half of the skin mask
-    lower_half_skin_pixels = cv2.countNonZero(lower_half_mask)
-    lower_half_skin_percentage = (lower_half_skin_pixels / (total_pixels / 2)) * 100
+    upper_half_mask = skin_mask[:height // 2, :]  # Extract the upper half of the skin mask
+    upper_half_skin_pixels = cv2.countNonZero(upper_half_mask)
+    upper_half_skin_percentage = (upper_half_skin_pixels / (total_pixels / 2)) * 100
 
-    # Find contours in the skin mask to detect large skin regions
+    # Find contours in the skin mask to detect all skin regions
     contours, _ = cv2.findContours(skin_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     large_skin_regions = [cnt for cnt in contours if cv2.contourArea(cnt) > 5000]  # Filter large regions
+    small_skin_regions = [cnt for cnt in contours if 100 < cv2.contourArea(cnt) <= 5000]  # Filter small regions
+
+    # Edge detection to identify boundaries of exposed skin
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    edges = cv2.Canny(gray, threshold1=50, threshold2=150)
+
+    # Combine edge detection with skin mask to focus on exposed areas
+    exposed_areas = cv2.bitwise_and(edges, skin_mask)
+    exposed_area_pixels = cv2.countNonZero(exposed_areas)
+    exposed_area_percentage = (exposed_area_pixels / total_pixels) * 100
+
+    # Calculate aspect ratio
+    aspect_ratio = max(width, height) / min(width, height)
 
     print(f"\nProcessing image: {image_path}")
     print(f"Skin Percentage (Entire Image): {skin_percentage:.2f}%")
-    print(f"Skin Percentage (Lower Half): {lower_half_skin_percentage:.2f}%")
+    print(f"Skin Percentage (Upper Half): {upper_half_skin_percentage:.2f}%")
     print(f"Large Skin Regions: {len(large_skin_regions)}")
+    print(f"Small Skin Regions: {len(small_skin_regions)}")
+    print(f"Exposed Area Percentage: {exposed_area_percentage:.2f}%")
+    print(f"Aspect Ratio: {aspect_ratio:.2f}")
 
     # Define thresholds for NSFW classification
-    skin_threshold = 25  # Adjust this value based on testing
-    lower_half_skin_threshold = 35  # Higher threshold for the lower half
-    min_large_skin_regions = 2  # Minimum number of large skin regions to flag as NSFW
+    skin_threshold = 30  # Increased from 20
+    upper_half_skin_threshold = 35  # Increased from 25
+    min_small_skin_regions = 2  # Increased from 1
+    exposed_area_threshold = 5.0  # Increased from 2.0
+    aspect_ratio_threshold = 1.2  # Aspect ratio threshold for filtering
 
     # Check if the image meets all criteria
     if (
         skin_percentage > skin_threshold and
-        lower_half_skin_percentage > lower_half_skin_threshold and
-        len(large_skin_regions) >= min_large_skin_regions
+        upper_half_skin_percentage > upper_half_skin_threshold and
+        len(small_skin_regions) >= min_small_skin_regions and
+        exposed_area_percentage > exposed_area_threshold and
+        aspect_ratio > aspect_ratio_threshold
     ):
-        print("NSFW content (exposed private parts) detected. Deleting the image...")
+        print("NSFW content (exposed nipples or private parts) detected. Deleting the image...")
         try:
             os.remove(image_path)  # Delete the image file
             print(f"Image deleted: {image_path}")
