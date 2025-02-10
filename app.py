@@ -4,20 +4,20 @@ import os
 
 def is_nsfw_and_delete(image_path):
     """
-    Detects NSFW content (including topless images) and deletes the image if flagged.
+    Detects NSFW content (e.g., exposed private parts) and deletes the image if flagged.
     """
     # Load the image
     image = cv2.imread(image_path)
     if image is None:
-        print(f"Error: Unable to load image '{image_path}'.")
+        print(f"Error: Unable to load image '{image_path}'. Skipping...")
         return
 
     # Convert to HSV color space
     hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
 
-    # Define skin color range in HSV (expanded range for better detection)
-    lower_skin = np.array([0, 30, 60], dtype=np.uint8)  # Lower bound for skin tones
-    upper_skin = np.array([25, 255, 255], dtype=np.uint8)  # Upper bound for skin tones
+    # Define skin color range in HSV
+    lower_skin = np.array([0, 48, 80], dtype=np.uint8)  # Lower bound for skin tones
+    upper_skin = np.array([20, 255, 255], dtype=np.uint8)  # Upper bound for skin tones
 
     # Create a mask for skin tones
     skin_mask = cv2.inRange(hsv, lower_skin, upper_skin)
@@ -32,11 +32,11 @@ def is_nsfw_and_delete(image_path):
     skin_pixels = cv2.countNonZero(skin_mask)
     skin_percentage = (skin_pixels / total_pixels) * 100
 
-    # Focus on the upper half of the image (to detect topless images)
+    # Focus on the lower half of the image (to detect exposed private parts)
     height, width = image.shape[:2]
-    upper_half_mask = skin_mask[:height // 2, :]  # Extract the upper half of the skin mask
-    upper_half_skin_pixels = cv2.countNonZero(upper_half_mask)
-    upper_half_skin_percentage = (upper_half_skin_pixels / (total_pixels / 2)) * 100
+    lower_half_mask = skin_mask[height // 2:, :]  # Extract the lower half of the skin mask
+    lower_half_skin_pixels = cv2.countNonZero(lower_half_mask)
+    lower_half_skin_percentage = (lower_half_skin_pixels / (total_pixels / 2)) * 100
 
     # Find contours in the skin mask to detect large skin regions
     contours, _ = cv2.findContours(skin_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -44,21 +44,21 @@ def is_nsfw_and_delete(image_path):
 
     print(f"\nProcessing image: {image_path}")
     print(f"Skin Percentage (Entire Image): {skin_percentage:.2f}%")
-    print(f"Skin Percentage (Upper Half): {upper_half_skin_percentage:.2f}%")
+    print(f"Skin Percentage (Lower Half): {lower_half_skin_percentage:.2f}%")
     print(f"Large Skin Regions: {len(large_skin_regions)}")
 
     # Define thresholds for NSFW classification
     skin_threshold = 25  # Adjust this value based on testing
-    upper_half_skin_threshold = 35  # Higher threshold for the upper half
+    lower_half_skin_threshold = 35  # Higher threshold for the lower half
     min_large_skin_regions = 2  # Minimum number of large skin regions to flag as NSFW
 
     # Check if the image meets all criteria
     if (
         skin_percentage > skin_threshold and
-        upper_half_skin_percentage > upper_half_skin_threshold and
+        lower_half_skin_percentage > lower_half_skin_threshold and
         len(large_skin_regions) >= min_large_skin_regions
     ):
-        print("NSFW content (topless or nude) detected. Deleting the image...")
+        print("NSFW content (exposed private parts) detected. Deleting the image...")
         try:
             os.remove(image_path)  # Delete the image file
             print(f"Image deleted: {image_path}")
@@ -89,41 +89,3 @@ def batch_process_folder(folder_path):
 # Example usage
 folder_path = "images"  # Replace with the path to your folder containing images
 batch_process_folder(folder_path)
-
-import shutil
-
-def is_nsfw_and_delete(image_path):
-    # ... (rest of the code remains the same)
-
-    if (
-        skin_percentage > skin_threshold and
-        upper_half_skin_percentage > upper_half_skin_threshold and
-        len(large_skin_regions) >= min_large_skin_regions
-    ):
-        print("NSFW content (topless or nude) detected. Moving the image to 'nsfw_images' folder...")
-        nsfw_folder = os.path.join(os.path.dirname(image_path), "nsfw_images")
-        os.makedirs(nsfw_folder, exist_ok=True)
-        shutil.move(image_path, os.path.join(nsfw_folder, os.path.basename(image_path)))
-        print(f"Image moved to: {nsfw_folder}")
-    else:
-        print("Image is safe. No action taken.")
-
-import logging
-
-logging.basicConfig(filename='nsfw_detection.log', level=logging.INFO)
-
-def is_nsfw_and_delete(image_path):
-    # ... (rest of the code remains the same)
-
-    logging.info(f"Processing image: {image_path}")
-    logging.info(f"Skin Percentage (Entire Image): {skin_percentage:.2f}%, Skin Percentage (Upper Half): {upper_half_skin_percentage:.2f}%, Large Skin Regions: {len(large_skin_regions)}")
-
-    if (
-        skin_percentage > skin_threshold and
-        upper_half_skin_percentage > upper_half_skin_threshold and
-        len(large_skin_regions) >= min_large_skin_regions
-    ):
-        logging.warning(f"NSFW detected. Deleting image: {image_path}")
-        os.remove(image_path)
-    else:
-        logging.info(f"Image is safe: {image_path}")
