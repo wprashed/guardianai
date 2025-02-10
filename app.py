@@ -4,7 +4,7 @@ import os
 
 def is_nsfw_and_delete(image_path):
     """
-    Detects NSFW content in an image using skin tone detection and deletes the image if flagged.
+    Detects NSFW content (including topless images) and deletes the image if flagged.
     """
     # Load the image
     image = cv2.imread(image_path)
@@ -27,36 +27,38 @@ def is_nsfw_and_delete(image_path):
     skin_mask = cv2.morphologyEx(skin_mask, cv2.MORPH_CLOSE, kernel)
     skin_mask = cv2.morphologyEx(skin_mask, cv2.MORPH_OPEN, kernel)
 
-    # Calculate the percentage of skin pixels
+    # Calculate the percentage of skin pixels in the entire image
     total_pixels = image.shape[0] * image.shape[1]
     skin_pixels = cv2.countNonZero(skin_mask)
     skin_percentage = (skin_pixels / total_pixels) * 100
 
-    # Calculate the aspect ratio
+    # Focus on the upper half of the image (to detect topless images)
     height, width = image.shape[:2]
-    aspect_ratio = max(width, height) / min(width, height)
+    upper_half_mask = skin_mask[:height // 2, :]  # Extract the upper half of the skin mask
+    upper_half_skin_pixels = cv2.countNonZero(upper_half_mask)
+    upper_half_skin_percentage = (upper_half_skin_pixels / (total_pixels / 2)) * 100
 
     # Find contours in the skin mask to detect large skin regions
     contours, _ = cv2.findContours(skin_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     large_skin_regions = [cnt for cnt in contours if cv2.contourArea(cnt) > 5000]  # Filter large regions
 
     print(f"\nProcessing image: {image_path}")
-    print(f"Skin Percentage: {skin_percentage:.2f}%")
-    print(f"Aspect Ratio: {aspect_ratio:.2f}")
+    print(f"Skin Percentage (Entire Image): {skin_percentage:.2f}%")
+    print(f"Skin Percentage (Upper Half): {upper_half_skin_percentage:.2f}%")
     print(f"Large Skin Regions: {len(large_skin_regions)}")
 
     # Define thresholds for NSFW classification
     skin_threshold = 25  # Adjust this value based on testing
-    aspect_ratio_threshold = 1.3  # Adjust this value based on testing
+    upper_half_skin_threshold = 35  # Higher threshold for the upper half
     min_large_skin_regions = 2  # Minimum number of large skin regions to flag as NSFW
 
     # Check if the image meets all criteria
     if (
         skin_percentage > skin_threshold and
-        aspect_ratio > aspect_ratio_threshold and
+        upper_half_skin_percentage > upper_half_skin_threshold and
         len(large_skin_regions) >= min_large_skin_regions
     ):
-        print("NSFW content detected. Deleting the image...")
+        print("NSFW content (topless or nude) detected. Deleting the image...")
         try:
             os.remove(image_path)  # Delete the image file
             print(f"Image deleted: {image_path}")
@@ -87,3 +89,41 @@ def batch_process_folder(folder_path):
 # Example usage
 folder_path = "images"  # Replace with the path to your folder containing images
 batch_process_folder(folder_path)
+
+import shutil
+
+def is_nsfw_and_delete(image_path):
+    # ... (rest of the code remains the same)
+
+    if (
+        skin_percentage > skin_threshold and
+        upper_half_skin_percentage > upper_half_skin_threshold and
+        len(large_skin_regions) >= min_large_skin_regions
+    ):
+        print("NSFW content (topless or nude) detected. Moving the image to 'nsfw_images' folder...")
+        nsfw_folder = os.path.join(os.path.dirname(image_path), "nsfw_images")
+        os.makedirs(nsfw_folder, exist_ok=True)
+        shutil.move(image_path, os.path.join(nsfw_folder, os.path.basename(image_path)))
+        print(f"Image moved to: {nsfw_folder}")
+    else:
+        print("Image is safe. No action taken.")
+
+import logging
+
+logging.basicConfig(filename='nsfw_detection.log', level=logging.INFO)
+
+def is_nsfw_and_delete(image_path):
+    # ... (rest of the code remains the same)
+
+    logging.info(f"Processing image: {image_path}")
+    logging.info(f"Skin Percentage (Entire Image): {skin_percentage:.2f}%, Skin Percentage (Upper Half): {upper_half_skin_percentage:.2f}%, Large Skin Regions: {len(large_skin_regions)}")
+
+    if (
+        skin_percentage > skin_threshold and
+        upper_half_skin_percentage > upper_half_skin_threshold and
+        len(large_skin_regions) >= min_large_skin_regions
+    ):
+        logging.warning(f"NSFW detected. Deleting image: {image_path}")
+        os.remove(image_path)
+    else:
+        logging.info(f"Image is safe: {image_path}")
