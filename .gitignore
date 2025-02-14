@@ -1,2 +1,4 @@
 .DS_Store
 /images
+.idea/vcs.xml
+.idea/workspace.xml
