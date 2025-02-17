@@ -1,4 +1,4 @@
-# Image Classifier: Detect, Blur, and Organize Nude/Semi-Nude Images
+# GuardianAI: Detect, Blur, and Organize Nude/Semi-Nude Images
 
 This Python project detects nude and semi-nude images using the **OpenNSFW2** library, blurs them, and organizes them into separate folders. It is designed to help automate the process of identifying and handling sensitive content in image datasets.
 
