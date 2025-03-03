@@ -43,8 +43,8 @@ pip install opennsfw2 pillow
 ## Installation
 1. Clone this repository:
    ```bash
-   git clone https://github.com/yourusername/image-classifier.git
-   cd image-classifier
+   git clone https://github.com/wprashed/guardianai
+   cd guardianai
    ```
 
 2. Install the required dependencies:
